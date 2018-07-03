@@ -4,54 +4,61 @@
     :class="{ 'is-selfie': isSelfieMode }"
     class="vue-camera"
   >
-    <video
-      ref="camera"
-      class="vue-camera-video"
-      autoplay
-      playsinline
-      muted
-      @click="() => captureOnClick && capture()"
-    />
+    <template v-if="isSupported">
+      <video
+        ref="camera"
+        class="vue-camera-video"
+        autoplay
+        playsinline
+        muted
+        @click="() => captureOnClick && capture()"
+      />
 
-    <img
-      v-if="preview"
-      :src="preview"
-      class="vue-camera-preview"
-    >
+      <div
+        class="vue-camera-shutter"
+        :class="{'is-on': isShutterOn }"
+      />
 
-    <div
-      v-if="isSupported && isLoading"
-      class="vue-camera-loader"
-    >
-      Loading...
-    </div>
+      <img
+        v-if="preview"
+        :src="preview"
+        class="vue-camera-preview"
+      >
 
-    <div
-      v-if="!isSupported"
-      class="vue-camera-content"
-    >
-      Not supported...
-    </div>
+      <div
+        v-if="isLoading"
+        class="vue-camera-loader"
+      >
+        <loader-icon />
+      </div>
 
-    <div
-      v-if="isMobile"
-      class="vue-camera-switcher"
-      @click="switchCamera"
-    >
-      switch
-    </div>
+      <div
+        v-if="isMobile"
+        class="vue-camera-switcher"
+        @click="switchCamera"
+      >
+        <switch-icon />
+      </div>
+    </template>
+    <template v-else>
+      <div class="vue-camera-content">
+        <crash-icon />
+      </div>
 
-    <input
-      ref="fallback"
-      class="vue-camera-fallback"
-      type="file"
-      accept="image/*"
-      capture="camera"
-    >
+      <input
+        ref="fallback"
+        class="vue-camera-fallback"
+        style="display: none"
+        type="file"
+        accept="image/*"
+        capture="camera"
+      >
+    </template>
 
     <slot
       :capture="capture"
       :isSupported="isSupported"
+      :isLoading="isLoading"
       :isSelfieMode="isSelfieMode"
       :isPreviewing="isPreviewing"
     />
@@ -59,13 +66,21 @@
 </template>
 
 <script>
-import { isIOS, isMobile } from "./utils";
+import { isIOS, isMobile } from "../utils";
+import LoaderIcon from '../images/camera-loader.svg';
+import CrashIcon from '../images/camera-crash.svg';
+import SwitchIcon from '../images/camera-switch.svg';
 
 function hasGetUserMedia() {
   return Boolean(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
 }
 
 export default {
+  components: {
+    LoaderIcon,
+    CrashIcon,
+    SwitchIcon
+  },
   props: {
     captureOnClick: {
       type: Boolean,
@@ -82,7 +97,8 @@ export default {
       isLoading: true,
       facingMode: isMobile() ? "environment" : "user",
       isMobile: isMobile(),
-      isSupported: hasGetUserMedia()
+      isSupported: hasGetUserMedia(),
+      isShutterOn: false,
     };
   },
   computed: {
@@ -118,7 +134,9 @@ export default {
       const constraints = {
         audio: false,
         video: {
-          facingMode: this.facingMode
+          facingMode: this.facingMode,
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
         }
       };
 
@@ -167,6 +185,7 @@ export default {
       const canvas = document.createElement("canvas");
       canvas.width = camera.videoWidth;
       canvas.height = camera.videoHeight;
+      this.shutter();
       canvas.getContext("2d").drawImage(camera, 0, 0);
       return canvas.toDataURL("image/webp");
     },
@@ -189,21 +208,21 @@ export default {
         ? this.capturePhoto()
         : await this.getPhoto();
       this.$emit("capture", imgUrl);
+    },
+    shutter() {
+      this.isShutterOn = true;
+      setTimeout(() => this.isShutterOn = false, 300);
     }
   }
 };
 </script>
 
-<style lang="scss" scoped>
+<style>
 .vue-camera {
   width: 100%;
   height: 100%;
   overflow: hidden;
   position: relative;
-}
-
-.vue-camera-fallback {
-  display: none;
 }
 
 .vue-camera-loader {
@@ -216,9 +235,8 @@ export default {
   display: flex;
   justify-content: center;
   align-items: center;
-  background: deeppink;
-  color: #fff;
-  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  background: #FFF;
+  color: #B0B0B0;
 }
 
 .vue-camera-content {
@@ -230,20 +248,39 @@ export default {
 
 .vue-camera-video {
   position: absolute;
-  top: 50%;
-  left: 50%;
+  top: 0;
+  left: 0;
   min-width: 100%;
   min-height: 100%;
+  max-width: 100%;
+  max-height: 100%;
   overflow: hidden;
-  width: auto;
-  transform: translateX(-50%) translateY(-50%);
+  object-fit: cover;
 }
 
 .vue-camera.is-selfie .vue-camera-video {
-  transform: translateX(-50%) translateY(-50%) scale(-1, 1);
+  transform: scale(-1, 1);
+}
+
+.vue-camera-shutter {
+  z-index: 30;
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background-color: #fff;
+  transition: opacity 150ms ease;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.vue-camera-shutter.is-on {
+  opacity: 1;
 }
 
 .vue-camera-preview {
+  z-index: 20;
   position: absolute;
   top: 0;
   left: 0;
@@ -257,9 +294,16 @@ export default {
 }
 
 .vue-camera-switcher {
+  z-index: 10;
   position: absolute;
-  bottom: 20px;
-  right: 15px;
+  bottom: 30px;
+  right: 30px;
+  width: 40px;
   color: #fff;
+}
+
+.vue-camera-switcher svg {
+  width: 100%;
+  height: 100%;
 }
 </style>

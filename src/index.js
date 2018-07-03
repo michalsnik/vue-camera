@@ -1,4 +1,4 @@
-import VueCamera from './VueCamera.vue'
+import VueCamera from './components/VueCamera.vue'
 
 const plugin = {
   install (Vue) {

@@ -5,6 +5,7 @@ import uglify from 'rollup-plugin-uglify'
 import vue from 'rollup-plugin-vue'
 import CleanCSS from 'clean-css';
 import fs from 'fs';
+import svg from 'rollup-plugin-vue-inline-svg';
 
 const pkg = require('./package.json')
 
@@ -21,6 +22,7 @@ export default [
     },
     plugins: [
       resolve(),
+      svg(),
       vue({
         compileTemplate: true,
         css: false
@@ -49,6 +51,7 @@ export default [
       }
     ],
     plugins: [
+      svg(),
       vue({
         compileTemplate: true,
         css(styles) {
